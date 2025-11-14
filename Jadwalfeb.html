@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jadwal Kegiatan FEB USU</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(to bottom right, #1ea7e1, #0c84c6);
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+    }
+
+    /* FULL WIDTH */
+    .wrap {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Container dibuat NAUFULL (tidak lagi kotak kecil) */
+    .container {
+        width: 100%;
+        max-width: 1200px; /* biar tidak terlalu melebar */
+        margin: 0 auto;
+        padding: 25px 18px;
+        color: white;
+        box-sizing: border-box;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 25px;
+        font-size: 32px;
+        font-weight: bold;
+        color: white;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        border: none;
+        margin-bottom: 12px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+
+    /* HILANGKAN tinggi maks supaya di Google Sites tidak terpotong */
+    #hasil {
+        margin-top: 25px;
+        width: 100%;
+        height: auto;
+    }
+
+    .card {
+        padding: 20px;
+        border-radius: 16px;
+        margin-bottom: 15px;
+        color: black;
+        background: #fff9d8;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeUp 0.5s ease forwards;
+    }
+
+    @keyframes fadeUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .card-today {
+        border-left: 8px solid #0077ff;
+        background: #e7f1ff;
+    }
+
+    .label-today {
+        color: #005eff;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    /* warna kartu berdasarkan tempat */
+    .tempat-aula { background: #fff4c2; }
+    .tempat-dosen { background: #d9ffd9; }
+    .tempat-lab { background: #d9ecff; }
+    .tempat-rapat { background: #ffe4d1; }
+
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<div class="container">
+
+<h1>Jadwal Kegiatan FEB USU</h1>
+
+<input id="search" placeholder="Cari kegiatan, ruangan, atau hari..." oninput="tampilkan()">
+
+<select id="filterHari" onchange="tampilkan()">
+    <option value="">Filter: Semua Hari</option>
+    <option value="SENIN">Senin</option>
+    <option value="SELASA">Selasa</option>
+    <option value="RABU">Rabu</option>
+    <option value="KAMIS">Kamis</option>
+    <option value="JUMAT">Jumat</option>
+    <option value="SABTU">Sabtu</option>
+    <option value="MINGGU">Minggu</option>
+</select>
+
+<select id="filterTempat" onchange="tampilkan()">
+    <option value="">Filter: Semua Tempat</option>
+</select>
+
+<div id="hasil">Memuat data...</div>
+
+</div>
+</div>
+
+<script>
+let jadwalData = [];
+
+window.onload = async () => {
+    try {
+        const res = await fetch(
+            "https://opensheet.elk.sh/1ltEyN6qERJ3g-1btMCXwyVfH3w7zHN5ZuTvTmiXvkn8/Jadwal"
+        );
+
+        jadwalData = await res.json();
+
+        generateTempatFilter();
+        sortJadwal();
+        tampilkan();
+    } catch (e) {
+        document.getElementById("hasil").innerHTML = "Gagal memuat data.";
+    }
+};
+
+function generateTempatFilter() {
+    let tempatList = [...new Set(jadwalData.map(j => j.tempat.toUpperCase()))];
+    tempatList.sort();
+
+    let select = document.getElementById("filterTempat");
+    select.innerHTML = `<option value="">Filter: Semua Tempat</option>`;
+
+    tempatList.forEach(t => {
+        select.innerHTML += `<option value="${t}">${toTitleCase(t)}</option>`;
+    });
+}
+
+function toTitleCase(str) {
+    return str.toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase());
+}
+
+function formatTanggal(tgl) {
+    let d = new Date(tgl);
+    const bulan = [
+        "Januari","Februari","Maret","April","Mei","Juni",
+        "Juli","Agustus","September","Oktober","November","Desember"
+    ];
+    return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function sortJadwal() {
+    jadwalData.sort((a, b) => {
+        let ta = new Date(a.tanggal + " " + a.waktu_mulai);
+        let tb = new Date(b.tanggal + " " + b.waktu_mulai);
+        return ta - tb;
+    });
+}
+
+function kelasTempat(tempat) {
+    tempat = tempat.toUpperCase();
+    if (tempat.includes("AULA")) return "tempat-aula";
+    if (tempat.includes("DOSEN")) return "tempat-dosen";
+    if (tempat.includes("LAB")) return "tempat-lab";
+    if (tempat.includes("RAPAT")) return "tempat-rapat";
+    return "";
+}
+
+function isToday(tanggalFull) {
+    let t = new Date(tanggalFull);
+    let today = new Date();
+    return (
+        t.getDate() === today.getDate() &&
+        t.getMonth() === today.getMonth() &&
+        t.getFullYear() === today.getFullYear()
+    );
+}
+
+function tampilkan() {
+    let hasil = document.getElementById("hasil");
+    let keyword = document.getElementById("search").value.toLowerCase();
+    let fHari = document.getElementById("filterHari").value;
+    let fTempat = document.getElementById("filterTempat").value;
+
+    let filtered = jadwalData.filter(d =>
+        (d.kegiatan.toLowerCase().includes(keyword) ||
+         d.tempat.toLowerCase().includes(keyword) ||
+         d.hari.toLowerCase().includes(keyword)) &&
+        (fHari === "" || d.hari === fHari) &&
+        (fTempat === "" || d.tempat.toUpperCase() === fTempat)
+    );
+
+    if (filtered.length === 0) {
+        hasil.innerHTML = "Tidak ada data.";
+        return;
+    }
+
+    let html = "";
+
+    filtered.forEach(d => {
+        let todayClass = isToday(d.tanggal) ? "card-today" : "";
+        let tempatClass = kelasTempat(d.tempat);
+
+        html += `
+            <div class="card ${todayClass} ${tempatClass}">
+                ${isToday(d.tanggal) ? `<div class="label-today">🔥 Hari Ini</div>` : ""}
+                <div class="tanggal"><b>${d.hari}, ${formatTanggal(d.tanggal)}</b></div>
+                <div>${d.waktu_mulai} - ${d.waktu_selesai}</div>
+                <div><b>${d.kegiatan}</b></div>
+                <div>📍 ${d.tempat}</div>
+            </div>
+        `;
+    });
+
+    hasil.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
